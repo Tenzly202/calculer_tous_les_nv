@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Calcul de la moyenne</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background:#f6f8fb; }
+        h1 { text-align:center; color:#222; }
+        .container { max-width:720px; margin:auto; background:white; padding:18px; border-radius:10px; box-shadow:0 6px 18px rgba(20,30,50,0.06);}
+        label { display:block; margin:8px 0 6px; font-weight:600; color:#333; }
+        .controls { display:flex; gap:10px; align-items:center; }
+        select { flex:1; padding:10px; border-radius:6px; border:1px solid #ddd; }
+        table { width:100%; border-collapse:collapse; margin-top:14px; }
+        th, td { padding:10px 8px; border-bottom:1px solid #eee; text-align:left; }
+        th { background:#fafafa; color:#444; font-weight:600; }
+        input[type=number] { width:90px; padding:8px; border-radius:6px; border:1px solid #ddd; }
+        #moyenne { font-size:1.3rem; color:#0b74de; text-align:center; margin-top:14px; }
+        .small { color:#666; font-size:0.9rem; }
+        @media(max-width:600px){ input[type=number]{ width:70px; } .controls{flex-direction:column;align-items:stretch;} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Calculateur de moyenne</h1>
+        <div class="controls">
+            <label for="classe" class="small">Choisir la classe :</label>
+            <select id="classe">
+                <option value="">-- Sélectionner --</option>
+                {% for c in classes %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="form_notes"></div>
+        <div id="moyenne"></div>
+    </div>
+
+    <script>
+        const coefficientsData = { coeffstojsonsafe };
+        const classeSelect = document.getElementById('classe');
+        const formDiv = document.getElementById('form_notes');
+        const moyenneDiv = document.getElementById('moyenne');
+
+        function buildForm(classe){
+            formDiv.innerHTML = '';
+            moyenneDiv.textContent = '';
+            if(!classe) return;
+            const matieres = coefficientsData[classe];
+            // Build table with exact order preserved
+            let html = '<table><thead><tr><th>Matière</th><th>Note</th><th>Coef</th></tr></thead><tbody>';
+            for(const matiere of Object.keys(matieres)){
+                html += `<tr>
+                    <td>${matiere}</td>
+                    <td><input type="number" min="0" max="20" step="0.01" value="0" data-matiere="${matiere}"></td>
+                    <td>${matieres[matiere]}</td>
+                </tr>`;
+            }
+            html += '</tbody></table>';
+            formDiv.innerHTML = html;
+
+            // attach input listeners
+            const inputs = formDiv.querySelectorAll('input[type=number]');
+            inputs.forEach(i => i.addEventListener('input', () => calculate(classe)));
+        }
+
+        function calculate(classe){
+            const inputs = formDiv.querySelectorAll('input[type=number]');
+            const notes = {};
+            inputs.forEach(i => notes[i.dataset.matiere] = parseFloat(i.value) || 0 );
+            fetch(`/calculate/${encodeURIComponent(classe)}`, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(notes)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.error) moyenneDiv.textContent = data.error;
+                else moyenneDiv.textContent = 'Moyenne pondérée : ' + data.moyenne;
+            })
+            .catch(err => { moyenneDiv.textContent = 'Erreur de calcul'; console.error(err); });
+        }
+
+        classeSelect.addEventListener('change', ()=> buildForm(classeSelect.value));
+    </script>
+</body>
+</html>
